@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Burwood Station 3D Buildings</title>
+    <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        #container { width: 100vw; height: 100vh; position: relative; }
+
+        /* 정보 패널 */
+        #info-panel {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+            max-width: 320px;
+        }
+        #info-panel h2 { margin: 0 0 8px 0; font-size: 18px; }
+        #info-panel p { margin: 4px 0; font-size: 13px; opacity: 0.85; }
+
+        /* 범례 */
+        #legend {
+            position: absolute;
+            bottom: 24px;
+            right: 16px;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 14px 18px;
+            border-radius: 12px;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+            font-size: 13px;
+        }
+        #legend h3 { margin: 0 0 10px 0; font-size: 14px; }
+        .legend-item { display: flex; align-items: center; margin: 5px 0; }
+        .legend-color { width: 20px; height: 14px; border-radius: 3px; margin-right: 8px; flex-shrink: 0; }
+
+        /* 툴팁 */
+        #tooltip {
+            position: absolute;
+            z-index: 20;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: none;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        /* 조작법 */
+        #controls {
+            position: absolute;
+            bottom: 24px;
+            left: 16px;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+            font-size: 12px;
+        }
+        #controls p { margin: 3px 0; opacity: 0.8; }
+        #controls strong { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <div id="info-panel">
+        <h2>🏙️ Burwood Station 3D Buildings</h2>
+        <p>📍 Burwood Station, Sydney NSW</p>
+        <p>🏢 건물 <span id="building-count">0</span>개 | 반경 500m</p>
+        <p id="hover-info" style="margin-top: 8px; color: #88ccff;"></p>
+    </div>
+
+    <div id="legend">
+        <h3>🏢 건물 높이</h3>
+        <div class="legend-item"><div class="legend-color" style="background: #2166ac;"></div>0~6m (1-2층)</div>
+        <div class="legend-item"><div class="legend-color" style="background: #67a9cf;"></div>6~12m (2-4층)</div>
+        <div class="legend-item"><div class="legend-color" style="background: #d1e5f0;"></div>12~20m (4-7층)</div>
+        <div class="legend-item"><div class="legend-color" style="background: #fddbc7;"></div>20~35m (7-12층)</div>
+        <div class="legend-item"><div class="legend-color" style="background: #ef8a62;"></div>35~60m (12-20층)</div>
+        <div class="legend-item"><div class="legend-color" style="background: #b2182b;"></div>60m+ (20층 이상)</div>
+    </div>
+
+    <div id="controls">
+        <p><strong>🖱️ 조작법:</strong></p>
+        <p>왼쪽 드래그: 이동 | 오른쪽 드래그: 회전</p>
+        <p>스크롤: 확대/축소 | Ctrl+드래그: 기울기</p>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <script>
+        // 높이별 색상 (QGIS 스타일과 동일)
+        function getColorByHeight(height) {
+            if (!height || height <= 0) return [100, 100, 100, 180];
+            if (height <= 6)  return [33, 102, 172, 200];   // 파랑 (1-2층)
+            if (height <= 12) return [103, 169, 207, 200];  // 연파랑 (2-4층)
+            if (height <= 20) return [209, 229, 240, 200];  // 아주 연파랑 (4-7층)
+            if (height <= 35) return [253, 219, 199, 200];  // 연주황 (7-12층)
+            if (height <= 60) return [239, 138, 98, 200];   // 주황 (12-20층)
+            return [178, 24, 43, 200];                       // 빨강 (20층+)
+        }
+
+        // GeoJSON 로드 및 3D 뷰 생성
+        async function init() {
+            const response = await fetch('./burwood_buildings.geojson');
+            const geojsonData = await response.json();
+
+            document.getElementById('building-count').textContent = geojsonData.features.length;
+
+            const tooltip = document.getElementById('tooltip');
+            const hoverInfo = document.getElementById('hover-info');
+
+            // Burwood Station 좌표
+            const BURWOOD_STATION = { longitude: 151.1043, latitude: -33.8773 };
+
+            // 건물 레이어
+            const buildingLayer = new deck.GeoJsonLayer({
+                id: 'buildings',
+                data: geojsonData,
+                extruded: true,
+                wireframe: true,
+                opacity: 0.85,
+                getElevation: f => (f.properties.height || 3) * 1.5,
+                getFillColor: f => getColorByHeight(f.properties.height),
+                getLineColor: [80, 80, 80, 100],
+                lineWidthMinPixels: 1,
+                pickable: true,
+                autoHighlight: true,
+                highlightColor: [255, 255, 100, 150],
+                material: {
+                    ambient: 0.35,
+                    diffuse: 0.6,
+                    shininess: 32,
+                    specularColor: [60, 64, 70]
+                },
+                onHover: info => {
+                    if (info.object) {
+                        const props = info.object.properties;
+                        const name = props.name || '이름 없음';
+                        const height = props.height || '?';
+                        const levels = props.levels || '?';
+                        tooltip.style.display = 'block';
+                        tooltip.style.left = (info.x + 12) + 'px';
+                        tooltip.style.top = (info.y + 12) + 'px';
+                        tooltip.innerHTML = `<strong>${name}</strong><br>📏 높이: ${height}m | 🏢 층수: ${levels}`;
+                        hoverInfo.textContent = `🏢 ${name} (${height}m)`;
+                    } else {
+                        tooltip.style.display = 'none';
+                        hoverInfo.textContent = '';
+                    }
+                }
+            });
+
+            // Burwood Station 핀 레이어
+            const pinLayer = new deck.ScatterplotLayer({
+                id: 'station-pin',
+                data: [{ position: [BURWOOD_STATION.longitude, BURWOOD_STATION.latitude], name: 'Burwood Station' }],
+                getPosition: d => d.position,
+                getRadius: 30,
+                getFillColor: [220, 20, 20, 255],
+                getLineColor: [255, 255, 255, 255],
+                lineWidthMinPixels: 2,
+                stroked: true,
+                pickable: true,
+                radiusMinPixels: 6,
+                radiusMaxPixels: 20
+            });
+
+            // deck.gl 인스턴스 생성
+            const deckgl = new deck.DeckGL({
+                container: 'container',
+                mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+                initialViewState: {
+                    longitude: BURWOOD_STATION.longitude,
+                    latitude: BURWOOD_STATION.latitude,
+                    zoom: 15.5,
+                    pitch: 55,
+                    bearing: -30,
+                    maxPitch: 75
+                },
+                controller: true,
+                layers: [buildingLayer, pinLayer],
+                effects: [
+                    new deck.LightingEffect({
+                        ambientLight: new deck.AmbientLight({ color: [255, 255, 255], intensity: 1.2 }),
+                        dirLight: new deck._SunLight({
+                            timestamp: Date.UTC(2024, 6, 15, 3, 0, 0),
+                            color: [255, 245, 230],
+                            intensity: 2.0
+                        })
+                    })
+                ],
+                getTooltip: null
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

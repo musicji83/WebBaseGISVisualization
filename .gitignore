@@ -1,0 +1,13 @@
+# QGIS MCP upstream repo (has its own git)
+qgis_mcp/
+
+# IDE / tool artifacts
+.specstory/
+__pycache__/
+*.pyc
+
+# OS files
+.DS_Store
+
+# Logs
+mcp_startup.log
