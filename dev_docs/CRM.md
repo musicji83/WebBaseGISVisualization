@@ -53,16 +53,26 @@
 | CR-08 | 3D 뷰 스크린샷 내보내기 | 페르소나 B | P2 | ⏳ 미구현 |
 | CR-09 | 다크/라이트 테마 전환 | 페르소나 A | P3 | ⏳ 미구현 |
 | CR-10 | 건물 데이터 CSV/Excel 내보내기 | 페르소나 B/C | P3 | ⏳ 미구현 |
+| CR-11 | 두 지역 동시 비교 (듀얼 원형 프레임) | 페르소나 B | P0 | ✅ 완료 |
+| CR-12 | SVG 마우스 조작 다이어그램 표시 | 페르소나 A | P1 | ✅ 완료 |
+| CR-13 | Left-drag: Pan, Right-drag: Orbit 명시적 컨트롤 | 페르소나 A/B | P0 | ✅ 완료 |
+| CR-14 | Ashfield Station 건물 데이터 추가 (840개) | 페르소나 B | P0 | ✅ 완료 |
+| CR-15 | 모든 UI 텍스트 영어(Australian English) 표기 | 페르소나 A/B/C | P0 | ✅ 완료 |
 
 ### 2.2 요구사항 ↔ 기능 추적표 (Traceability Matrix)
 
 | 요구사항 | 구현 파일 | 구현 방법 |
 |---------|----------|----------|
 | CR-01 | `run_all_steps.py` | QGIS 자동 시작 + MCP 서버 대기 + Step 1~5 실행 |
-| CR-02 | `burwood_3d_viewer.html` | deck.gl DeckGL controller: true (회전/확대/이동) |
-| CR-03 | `burwood_3d_viewer.html` | getColorByHeight() 함수, 6단계 색상 매핑 |
-| CR-04 | `burwood_3d_viewer.html` | GeoJsonLayer onHover → tooltip div 표시 |
+| CR-02 | `dual_3d_viewer.html` | deck.gl controller: { dragPan, dragRotate, scrollZoom } |
+| CR-03 | `dual_3d_viewer.html` | getColorByHeight() 함수, 6단계 색상 매핑 |
+| CR-04 | `dual_3d_viewer.html` | GeoJsonLayer onHover → tooltip div (이름, 높이, 층수) |
 | CR-05 | `auto_start_mcp.py` | QGIS `--code` 플래그로 MCP 서버 자동 시작 |
+| CR-11 | `dual_3d_viewer.html` | 듀얼 원형 프레임: Burwood(좌) vs Ashfield(우) |
+| CR-12 | `dual_3d_viewer.html` | SVG 마우스 다이어그램 (Pan/Orbit/Zoom/Info) |
+| CR-13 | `dual_3d_viewer.html` | Left-drag=Pan, Right-drag=Orbit 명시적 설정 |
+| CR-14 | `ashfield_buildings.geojson` | Overpass API로 Ashfield Station 500 m 반경 수집 |
+| CR-15 | `dual_3d_viewer.html` | 모든 UI 텍스트 en-AU, Storeys/SI 단위 표기 |
 
 ---
 
@@ -77,6 +87,10 @@
 | 세션 1 | "Step 4 이후 항상 크래시" | setRenderer3D() 상태 오염 | Step 순서 변경 (5→4) | ✅ 해결 |
 | 세션 2 | "3D가 아니라 2D 화면만 보임" | 3D Map View 미생성 | 웹 기반 3D 뷰어 구축 | ✅ 해결 |
 | 세션 2 | "화면이 돌아가지 않음" | QGIS 2D 캔버스는 회전 불가 | deck.gl 인터랙티브 3D 뷰어 | ✅ 해결 |
+| 세션 3 | "두 지역 비교 뷰 원형 프레임" | 단일 뷰어로는 비교 불가 | 듀얼 원형 프레임 dual_3d_viewer.html | ✅ 해결 |
+| 세션 3 | "마우스 조작 다이어그램 추가" | 조작 방법이 직관적이지 않음 | SVG 마우스 가이드 오버레이 | ✅ 해결 |
+| 세션 3 | "모든 텍스트 영어로" | 한국어 UI 텍스트 | 전체 English (en-AU) 전환 | ✅ 해결 |
+| 세션 3 | "호주식 영어 검증" | Floors→Storeys, SI 단위 | Australian English 규칙 적용 | ✅ 해결 |
 
 ### 3.2 만족도 평가
 
@@ -84,7 +98,9 @@
 |------|--------|----------|--------|
 | 자동화 파이프라인 | 한 줄 실행 | `python3 run_all_steps.py` | ★★★★★ |
 | 3D 시각화 | QGIS 3D 뷰 | 웹 기반 deck.gl (대체) | ★★★★☆ |
-| 데이터 정확도 | OSM 건물 513개 | 513개 모두 로드 | ★★★★★ |
+| 데이터 정확도 | OSM 건물 수집 | Burwood 513 + Ashfield 840 = 1,353개 | ★★★★★ |
+| 듀얼 비교 뷰 | 두 지역 동시 비교 | 원형 프레임 좌/우 배치 | ★★★★★ |
+| 마우스 컨트롤 | 직관적 조작 | SVG 가이드 + 명시적 컨트롤러 | ★★★★★ |
 | 실행 안정성 | 크래시 없음 | Step 순서 조정으로 해결 | ★★★★☆ |
 
 ---
@@ -95,10 +111,10 @@
 - 좌표/반경을 파라미터로 받아 다른 지역도 분석할 수 있게 범용화
 - 건물 이름/높이 기반 검색 및 하이라이트
 - 범례 클릭으로 특정 높이 범위 필터링
+- 3개 이상 지역 동시 비교 (트리플 뷰)
 
 ### 4.2 중기 (v2.x)
-- 여러 지역 비교 분석 (탭 형태)
-- 건물 데이터 통계 대시보드 (평균 높이, 분포 차트)
+- 건물 데이터 통계 대시보드 (평균 높이, 분포 차트, 지역 간 비교 그래프)
 - 시간대별 그림자 시뮬레이션 (태양 위치 기반)
 
 ### 4.3 장기 (v3.x)

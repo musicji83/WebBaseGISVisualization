@@ -1,17 +1,17 @@
 # BUILD PROCESS (구축 프로세스)
 
-## Burwood 3D 웹 뷰어 구축 과정
+## Burwood & Ashfield 3D 웹 뷰어 구축 과정
 
 ---
 
 ## 1. 전체 프로세스 개요
 
 ```
-📡 1단계: 데이터 수집        →  Overpass API → GeoJSON
+📡 1단계: 데이터 수집              →  Overpass API → GeoJSON (Burwood + Ashfield)
      ↓
-🗺️ 2단계: QGIS 프로젝트 구성  →  MCP 서버 경유 자동화
+🗺️ 2단계: QGIS 프로젝트 구성      →  MCP 서버 경유 자동화 (Burwood)
      ↓
-🌐 3단계: 웹 3D 시각화        →  deck.gl + MapLibre
+🌐 3단계: 웹 3D 시각화 (듀얼 뷰)  →  deck.gl + MapLibre + SVG 마우스 가이드
 ```
 
 **소요 시간**: 전체 파이프라인 약 90초 (QGIS 시작 포함)
@@ -27,16 +27,30 @@
 | **API** | OpenStreetMap Overpass API |
 | **엔드포인트** | `https://overpass-api.de/api/interpreter` |
 | **쿼리 방식** | Overpass QL (영역 내 building 태그 검색) |
-| **좌표** | Burwood Station: 위도 -33.8773, 경도 151.1043 |
-| **반경** | 500m |
+| **좌표 (Burwood)** | 위도 -33.8773, 경도 151.1043 |
+| **좌표 (Ashfield)** | 위도 -33.8871, 경도 151.1280 |
+| **반경** | 500 m (각 지역) |
 
 ### 2.2 Overpass 쿼리
 
+**Burwood Station**:
 ```
 [out:json][timeout:30];
 (
   way["building"](around:500, -33.8773, 151.1043);
   relation["building"](around:500, -33.8773, 151.1043);
+);
+out body;
+>;
+out skel qt;
+```
+
+**Ashfield Station**:
+```
+[out:json][timeout:30];
+(
+  way["building"](around:500, -33.8871, 151.1280);
+  relation["building"](around:500, -33.8871, 151.1280);
 );
 out body;
 >;
@@ -89,12 +103,15 @@ burwood_buildings.geojson 저장 (221KB)
 
 ### 2.5 데이터 통계
 
-| 항목 | 값 |
-|------|-----|
-| 총 건물 수 | 513개 |
-| 파일 크기 | 221KB |
-| 높이 범위 | 3m ~ 60m+ |
-| 좌표계 | WGS84 (EPSG:4326) |
+| 항목 | Burwood | Ashfield |
+|------|---------|---------|
+| 총 건물 수 | 513개 | 840개 |
+| 파일 크기 | 221 KB | 344 KB |
+| 높이 범위 | 3 m ~ 60 m+ | 3 m ~ 12 m |
+| 좌표계 | WGS84 (EPSG:4326) | WGS84 (EPSG:4326) |
+| GeoJSON 파일 | `burwood_buildings.geojson` | `ashfield_buildings.geojson` |
+
+**참고**: Overpass API JSON 응답에서 way 노드 참조 키는 `nodes` (not `nds`). Python 수집 코드에서 `el.get('nodes', el.get('nds', []))` 패턴으로 처리.
 
 ---
 
@@ -246,35 +263,52 @@ Step 4 실행 → setRenderer3D() → QGIS 내부 상태 변경
 | CesiumJS | 지구본, 고정밀 지형 | 무겁고 복잡 | ❌ |
 | **deck.gl** | **GeoJSON 네이티브, 경량, 인터랙티브** | CDN 의존 | ✅ |
 
-### 4.2 deck.gl 렌더링 파이프라인
+### 4.2 deck.gl 렌더링 파이프라인 (듀얼 뷰)
 
 ```
-[1] HTML 로드
+[1] HTML 로드 (dual_3d_viewer.html)
     ↓
 [2] deck.gl + MapLibre CDN 로드
     ↓
-[3] fetch('./burwood_buildings.geojson')
-    → GeoJSON 데이터 로드 (HTTP 서버 필요)
+[3] GeoJSON 데이터 로드 (HTTP 서버 필요)
+    ├── fetch('./burwood_buildings.geojson')  → 513개 건물
+    └── fetch('./ashfield_buildings.geojson') → 840개 건물
     ↓
-[4] GeoJsonLayer 생성
+[4] GeoJsonLayer × 2 생성 (각 지역별)
     ├── extruded: true                    → 폴리곤을 3D로 돌출
     ├── getElevation: height * 1.5        → 높이값으로 돌출 높이 결정
     ├── getFillColor: getColorByHeight()  → 높이별 6단계 색상
     ├── pickable: true                    → 마우스 인터랙션 활성화
-    └── onHover: tooltip 업데이트         → 건물 정보 표시
+    └── onHover: tooltip 업데이트         → 건물 정보 표시 (en-AU)
     ↓
-[5] DeckGL 인스턴스 생성
+[5] DeckGL 인스턴스 × 2 생성 (좌: Burwood, 우: Ashfield)
     ├── mapStyle: CARTO dark-matter       → 다크 테마 배경지도
     ├── initialViewState:
-    │   ├── longitude/latitude: Burwood   → 초기 카메라 위치
+    │   ├── longitude/latitude            → 각 지역 중심 좌표
     │   ├── zoom: 15.5                    → 확대 수준
     │   ├── pitch: 55°                    → 기울기 (3D 느낌)
     │   └── bearing: -30°                 → 회전각
-    ├── controller: true                  → 마우스 조작 활성화
+    ├── controller: {                     → 명시적 마우스 컨트롤
+    │     dragPan: true,                  → Left-drag = Pan
+    │     dragRotate: true,               → Right-drag = Orbit
+    │     scrollZoom: true,               → Scroll wheel = Zoom
+    │     touchRotate: true               → Touch gesture = Orbit
+    │   }
     └── effects: LightingEffect           → 조명 효과
     ↓
-[6] WebGL 캔버스에 렌더링
-    → 60fps 인터랙티브 3D 뷰 완성
+[6] CSS 원형 프레임 렌더링
+    ├── border-radius: 50%               → 원형 클리핑
+    ├── overflow: hidden                  → 원 밖 영역 숨김
+    └── 좌/우 나란히 배치 (flexbox)
+    ↓
+[7] SVG 마우스 조작 다이어그램 오버레이
+    ├── Left + drag = Pan 라벨
+    ├── Right + drag = Orbit 라벨
+    ├── Scroll = Zoom 라벨
+    └── Hover = Info 라벨
+    ↓
+[8] WebGL 캔버스에 렌더링
+    → 듀얼 원형 프레임 인터랙티브 3D 뷰 완성
 ```
 
 ### 4.3 높이→색상 매핑 함수
@@ -304,30 +338,34 @@ http://localhost:8080/burwood_3d_viewer.html
     ✅ 같은 origin이므로 CORS 통과
 ```
 
-### 4.5 UI 구성 요소
+### 4.5 UI 구성 요소 (듀얼 뷰)
 
 ```
-┌──────────────────────────────────────────────────────┐
-│  ┌─────────────────────┐                             │
-│  │ 🏙️ Burwood Station  │                             │
-│  │ 3D Buildings        │          3D 건물 뷰         │
-│  │ 📍 Sydney NSW       │       (deck.gl 캔버스)       │
-│  │ 🏢 건물 513개       │                             │
-│  └─────────────────────┘                             │
-│                                                      │
-│                    [ 건물들이 3D로                     │
-│                      돌출되어 표시 ]                   │
-│                                                      │
-│                                   ┌────────────────┐ │
-│  ┌──────────────────┐             │ 🏢 건물 높이    │ │
-│  │ 🖱️ 조작법:       │             │ ■ 0~6m (1-2층) │ │
-│  │ 왼쪽 드래그: 이동 │             │ ■ 6~12m        │ │
-│  │ 오른쪽: 회전     │             │ ■ 12~20m       │ │
-│  │ 스크롤: 확대     │             │ ■ 20~35m       │ │
-│  │ Ctrl: 기울기     │             │ ■ 35~60m       │ │
-│  └──────────────────┘             │ ■ 60m+         │ │
-│                                   └────────────────┘ │
-└──────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│          Sydney Stations — 3D Building Comparison                │
+│                                                                 │
+│  ┌─────────────────────┐      ┌─────────────────────┐          │
+│  │     ╭─────────╮     │      │     ╭─────────╮     │          │
+│  │    ╱ Burwood   ╲    │      │    ╱ Ashfield  ╲    │          │
+│  │   │  Station    │   │      │   │  Station    │   │          │
+│  │   │  (513)      │   │      │   │  (840)      │   │          │
+│  │    ╲  3D 건물  ╱    │      │    ╲  3D 건물  ╱    │          │
+│  │     ╰─────────╯     │      │     ╰─────────╯     │          │
+│  │   Burwood Station   │      │   Ashfield Station   │          │
+│  │   513 buildings     │      │   840 buildings      │          │
+│  └─────────────────────┘      └─────────────────────┘          │
+│                                                                 │
+│  ┌────────────────┐                    ┌──────────────────────┐ │
+│  │ Building Height │                    │  🖱️ SVG Mouse Guide │ │
+│  │ ■ 0–6 m        │                    │  Left+drag = Pan     │ │
+│  │ ■ 6–12 m       │                    │  Right+drag = Orbit  │ │
+│  │ ■ 12–20 m      │                    │  Scroll = Zoom       │ │
+│  │ ■ 20–35 m      │                    │  Hover = Info        │ │
+│  │ ■ 35–60 m      │                    └──────────────────────┘ │
+│  │ ■ 60 m+        │                                            │
+│  └────────────────┘                                            │
+│  Left-drag: Pan | Right-drag: Orbit | Scroll: Zoom | Hover: Info│
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -346,6 +384,8 @@ http://localhost:8080/burwood_3d_viewer.html
 | 6 | Overpass API 504 타임아웃 | 서버 과부하 | 기존 GeoJSON 파일 재사용 |
 | 7 | startup.py 미실행 | QGIS 프로필 설정 문제 | `--code` 플래그 방식으로 전환 |
 | 8 | HTTP 서버 404 | 잘못된 디렉토리에서 실행 | QGIS_MCP 디렉토리에서 실행 |
+| 9 | Ashfield 건물 0개 수집 | Overpass JSON `nodes` 키를 `nds`로 참조 | `el.get('nodes', el.get('nds', []))` 패턴 적용 |
+| 10 | Ashfield 좌표 오류 | 초기 좌표(-33.8884, 151.1264)가 역사에서 벗어남 | (-33.8871, 151.1280)으로 수정 |
 
 ### 5.2 알려진 미해결 이슈
 
@@ -371,7 +411,15 @@ python3 -m http.server 8080 --bind 127.0.0.1 &
 open http://localhost:8080/burwood_3d_viewer.html
 ```
 
-### 6.2 웹 뷰어만 실행 (GeoJSON이 이미 있을 때)
+### 6.2 듀얼 3D 뷰어 실행 (Burwood vs Ashfield 비교)
+
+```bash
+cd /Users/link4eeg/Desktop/QGIS_MCP
+python3 -m http.server 8080 --bind 127.0.0.1 &
+open http://localhost:8080/dual_3d_viewer.html
+```
+
+### 6.3 단일 3D 뷰어만 실행 (Burwood만)
 
 ```bash
 cd /Users/link4eeg/Desktop/QGIS_MCP
@@ -379,7 +427,7 @@ python3 -m http.server 8080 --bind 127.0.0.1 &
 open http://localhost:8080/burwood_3d_viewer.html
 ```
 
-### 6.3 QGIS 프로젝트만 열기
+### 6.4 QGIS 프로젝트만 열기
 
 ```bash
 open /Users/link4eeg/Desktop/QGIS_MCP/burwood_3d.qgz

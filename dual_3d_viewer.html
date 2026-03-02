@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sydney 3D Buildings - Dual View</title>
+    <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Header title */
+        #header {
+            text-align: center;
+            padding: 16px 0 8px 0;
+            flex-shrink: 0;
+        }
+        #header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #88ccff, #ff88cc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        #header p {
+            font-size: 13px;
+            opacity: 0.5;
+            margin-top: 4px;
+        }
+
+        /* Dual view container */
+        #dual-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex: 1;
+            width: 100%;
+            padding: 0 24px;
+        }
+
+        /* View wrapper (circle + label) */
+        .view-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* Circle frame */
+        .circle-frame {
+            width: min(42vw, 42vh);
+            height: min(42vw, 42vh);
+            border-radius: 50%;
+            overflow: hidden;
+            position: relative;
+            border: 3px solid rgba(255, 255, 255, 0.15);
+            box-shadow:
+                0 0 40px rgba(100, 180, 255, 0.15),
+                inset 0 0 30px rgba(0, 0, 0, 0.3);
+            transition: box-shadow 0.3s ease;
+        }
+        .circle-frame:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow:
+                0 0 60px rgba(100, 180, 255, 0.25),
+                inset 0 0 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .circle-frame .deck-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Area label */
+        .area-label {
+            text-align: center;
+        }
+        .area-label h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .area-label .stats {
+            font-size: 12px;
+            opacity: 0.5;
+            margin-top: 2px;
+        }
+        .left-label h2 { color: #88ccff; }
+        .right-label h2 { color: #ff88aa; }
+
+        /* Building count badge */
+        .badge {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            z-index: 10;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
+        }
+
+        /* Footer legend */
+        #footer {
+            flex-shrink: 0;
+            padding: 12px 0 16px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        /* Center column */
+        #center-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            align-self: center;
+            min-width: 260px;
+            z-index: 5;
+        }
+        #vs-marker {
+            font-size: 20px;
+            font-weight: 800;
+            color: rgba(255, 255, 255, 0.15);
+            letter-spacing: 4px;
+            user-select: none;
+            margin: -2px 0;
+        }
+
+        /* Tooltip */
+        #tooltip {
+            position: fixed;
+            z-index: 100;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.88);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            display: none;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            max-width: 220px;
+        }
+
+        /* ===== Mouse Control Guide (user design v2) ===== */
+        #mouse-guide {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 260px;
+            opacity: 0.92;
+            transition: opacity 0.3s ease;
+        }
+        #mouse-guide:hover { opacity: 1; }
+
+        /* Top bar: Gold + Purple */
+        .mg-top-bar {
+            display: flex;
+            width: 100%;
+            gap: 2px;
+        }
+        .mg-gold {
+            flex: 1;
+            background: linear-gradient(135deg, #5C4400 0%, #9A7520 100%);
+            border-radius: 10px 0 0 0;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .mg-purple-top {
+            width: 125px;
+            background: linear-gradient(135deg, #5B2070 0%, #8B50A0 100%);
+            border-radius: 0 10px 0 0;
+            padding: 8px 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Dual trapezoids: Pan (blue left) + Orbit (purple right) */
+        .mg-dual-trap {
+            display: flex;
+            width: 100%;
+            margin-top: 2px;
+            min-height: 90px;
+        }
+        .mg-pan-trap {
+            flex: 1;
+            background: linear-gradient(180deg, #1A5090 0%, #0C3070 100%);
+            clip-path: polygon(0 0, 100% 0, 58% 100%, 0 100%);
+            padding: 10px 14px 24px 14px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .mg-orbit-trap {
+            flex: 1;
+            background: linear-gradient(180deg, #5B2070 0%, #7B3F90 100%);
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 42% 100%);
+            padding: 10px 14px 24px 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            text-align: right;
+            justify-content: space-between;
+        }
+
+        /* Mouse row (< mouse >) */
+        .mg-mouse-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: -4px 0;
+            z-index: 2;
+        }
+        .mg-chev {
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.22);
+            font-weight: 300;
+        }
+
+        /* Zoom inverted trapezoid (green) */
+        .mg-zoom-inner {
+            width: 100%;
+            background: linear-gradient(180deg, #0D4020 0%, #1A7040 100%);
+            clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%);
+            border-radius: 0 0 10px 10px;
+            padding: 16px 20px 12px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            margin-top: -4px;
+        }
+        .mg-zoom-icons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        /* Shared label styles */
+        .mg-label {
+            font-size: 11.5px;
+            line-height: 1.4;
+            color: white;
+        }
+        .mg-label strong {
+            font-size: 12.5px;
+            font-weight: 700;
+            display: block;
+        }
+        .mg-label span {
+            opacity: 0.6;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>Sydney 3D Buildings Comparison</h1>
+        <p>Burwood Station vs Ashfield Station — 500 m Radius Building Comparison</p>
+    </div>
+
+    <div id="dual-container">
+        <!-- Left: Burwood -->
+        <div class="view-wrapper">
+            <div class="circle-frame" id="frame-left">
+                <div class="badge" id="badge-left">loading...</div>
+                <div class="deck-container" id="deck-left"></div>
+            </div>
+            <div class="area-label left-label">
+                <h2>📍 Burwood Station</h2>
+                <div class="stats" id="stats-left">loading...</div>
+            </div>
+        </div>
+
+        <!-- Center column: Mouse Control Guide (user design v2) -->
+        <div id="center-col">
+            <div id="mouse-guide">
+
+                <!-- ① Top Bar: Gold (Shift toggle) + Purple (icons) -->
+                <div class="mg-top-bar">
+                    <div class="mg-gold">
+                        <!-- Shift key icon (larger, matches reference) -->
+                        <svg width="58" height="34" viewBox="0 0 58 34" fill="none">
+                            <rect x="1" y="1" width="56" height="32" rx="5" stroke="rgba(255,255,255,0.65)" stroke-width="1.5" fill="rgba(255,255,255,0.08)"/>
+                            <text x="29" y="22" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-size="13" font-weight="600" font-family="sans-serif">Shift</text>
+                        </svg>
+                        <div class="mg-label">
+                            <strong>Shift Key</strong>
+                            <span>to Toggle Height<br>Colours</span>
+                        </div>
+                    </div>
+                    <div class="mg-purple-top">
+                        <svg width="110" height="48" viewBox="0 0 110 48" fill="none">
+                            <!-- hand cursor (larger) -->
+                            <path d="M10 8 L10 28 L15 23 L20 30 L24 28 L20 22 L26 21Z" stroke="white" stroke-width="1.8" fill="none" opacity="0.9"/>
+                            <line x1="5" y1="15" x2="1" y2="15" stroke="white" stroke-width="1" opacity="0.45"/>
+                            <line x1="5" y1="20" x2="0" y2="20" stroke="white" stroke-width="1" opacity="0.45"/>
+                            <line x1="6" y1="10" x2="3" y2="7" stroke="white" stroke-width="0.9" opacity="0.35"/>
+                            <!-- mouse icon (larger) -->
+                            <ellipse cx="52" cy="24" rx="11" ry="16" stroke="rgba(255,255,255,0.6)" stroke-width="1.1" fill="rgba(255,255,255,0.05)"/>
+                            <path d="M52 8 C44 8, 41 14, 41 24 L52 24Z" fill="rgba(100,170,255,0.45)"/>
+                            <path d="M52 8 C60 8, 63 14, 63 24 L52 24Z" fill="rgba(180,80,200,0.45)"/>
+                            <line x1="52" y1="8" x2="52" y2="24" stroke="rgba(255,255,255,0.35)" stroke-width="0.8"/>
+                            <!-- orbit arrow (larger) -->
+                            <path d="M78 12 C92 6, 102 18, 96 28" stroke="white" stroke-width="2" fill="none" opacity="0.9"/>
+                            <path d="M93 26 L96 28 L98 23" stroke="white" stroke-width="2" fill="none" opacity="0.9"/>
+                            <path d="M78 12 L75 16 L80 15" stroke="white" stroke-width="1.5" fill="none" opacity="0.7"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- ② Dual Trapezoids: Pan (blue left) + Orbit (purple right) -->
+                <div class="mg-dual-trap">
+                    <div class="mg-pan-trap">
+                        <div class="mg-label">
+                            <strong>Left-click &amp; Drag</strong>
+                            <span>to Pan View</span>
+                        </div>
+                        <!-- hand drag cursor (larger) -->
+                        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                            <path d="M12 5 L12 22 L16 18 L20 25 L24 23 L20 17 L26 16Z" stroke="white" stroke-width="1.6" fill="rgba(255,255,255,0.1)" opacity="0.9"/>
+                            <line x1="6" y1="13" x2="2" y2="13" stroke="white" stroke-width="0.9" opacity="0.4"/>
+                            <line x1="6" y1="17" x2="1" y2="17" stroke="white" stroke-width="0.9" opacity="0.4"/>
+                            <line x1="8" y1="8" x2="5" y2="5" stroke="white" stroke-width="0.8" opacity="0.3"/>
+                        </svg>
+                    </div>
+                    <div class="mg-orbit-trap">
+                        <div class="mg-label">
+                            <strong>Right-click &amp; Drag</strong>
+                            <span>to Orbit View</span>
+                        </div>
+                        <!-- orbit circular arrow (larger) -->
+                        <svg width="38" height="38" viewBox="0 0 38 38" fill="none" style="align-self:flex-end;">
+                            <path d="M10 12 C20 3, 32 12, 28 24" stroke="white" stroke-width="2" fill="none" opacity="0.9"/>
+                            <path d="M26 22 L28 24 L30 19" stroke="white" stroke-width="2" fill="none" opacity="0.9"/>
+                            <path d="M10 12 L7 16 L12 15" stroke="white" stroke-width="1.5" fill="none" opacity="0.7"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- VS -->
+                <div id="vs-marker">VS</div>
+
+                <!-- ③ Mouse Icon (center) with chevrons -->
+                <div class="mg-mouse-row">
+                    <span class="mg-chev">&lsaquo;</span>
+                    <svg width="74" height="96" viewBox="0 0 74 96" fill="none">
+                        <!-- body shadow -->
+                        <ellipse cx="37" cy="52" rx="32" ry="42" fill="#555"/>
+                        <!-- left half (blue) -->
+                        <path d="M37 10 C20 10, 5 25, 5 52 L37 52Z" fill="#4488CC"/>
+                        <!-- right half (purple) -->
+                        <path d="M37 10 C54 10, 69 25, 69 52 L37 52Z" fill="#8855AA"/>
+                        <!-- divider -->
+                        <line x1="37" y1="10" x2="37" y2="52" stroke="#333" stroke-width="2"/>
+                        <!-- scroll wheel (green) -->
+                        <rect x="29" y="22" width="16" height="22" rx="8" fill="#3A8A4A" stroke="#5ABA6A" stroke-width="1.3"/>
+                        <!-- body outline -->
+                        <ellipse cx="37" cy="52" rx="32" ry="42" fill="none" stroke="#888" stroke-width="2"/>
+                    </svg>
+                    <span class="mg-chev">&rsaquo;</span>
+                </div>
+
+                <!-- ④ Zoom Section: Green inverted trapezoid -->
+                <div class="mg-zoom-inner">
+                    <div class="mg-zoom-icons">
+                        <!-- up/down arrows -->
+                        <svg width="20" height="34" viewBox="0 0 20 34" fill="none">
+                            <path d="M10 2 L5 9 L15 9Z" fill="white" opacity="0.8"/>
+                            <line x1="10" y1="9" x2="10" y2="25" stroke="white" stroke-width="1.6" opacity="0.45"/>
+                            <path d="M10 32 L5 25 L15 25Z" fill="white" opacity="0.8"/>
+                        </svg>
+                        <!-- scroll wheel outline -->
+                        <svg width="26" height="38" viewBox="0 0 26 38" fill="none">
+                            <rect x="3" y="3" width="20" height="32" rx="10" stroke="white" stroke-width="1.6" fill="none" opacity="0.7"/>
+                            <rect x="7" y="10" width="12" height="15" rx="6" stroke="white" stroke-width="1.1" fill="rgba(255,255,255,0.08)"/>
+                        </svg>
+                        <!-- +/- -->
+                        <div style="display:flex;flex-direction:column;gap:2px;font-size:17px;font-weight:700;opacity:0.65;line-height:1;">
+                            <span>+</span>
+                            <span>−</span>
+                        </div>
+                    </div>
+                    <div class="mg-label" style="margin-top:3px;">
+                        <strong>Scroll Wheel</strong>
+                        <span>to Zoom In/Out</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right: Ashfield -->
+        <div class="view-wrapper">
+            <div class="circle-frame" id="frame-right">
+                <div class="badge" id="badge-right">loading...</div>
+                <div class="deck-container" id="deck-right"></div>
+            </div>
+            <div class="area-label right-label">
+                <h2>📍 Ashfield Station</h2>
+                <div class="stats" id="stats-right">loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="footer">
+        <div class="legend-item"><div class="legend-dot" style="background:#2166ac;"></div>0–6 m</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#67a9cf;"></div>6–12 m</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d1e5f0;"></div>12–20 m</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#fddbc7;"></div>20–35 m</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef8a62;"></div>35–60 m</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#b2182b;"></div>60 m+</div>
+        <span style="margin-left: 12px; opacity: 0.4;">|</span>
+        <span style="opacity: 0.4; margin-left: 8px;">Left-drag: Pan | Right-drag: Orbit | Scroll: Zoom | Shift: Toggle Colours | Hover: Info</span>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <script>
+        // Color by height (same for both views)
+        function getColorByHeight(height) {
+            if (!height || height <= 0) return [100, 100, 100, 180];
+            if (height <= 6)  return [33, 102, 172, 210];
+            if (height <= 12) return [103, 169, 207, 210];
+            if (height <= 20) return [209, 229, 240, 210];
+            if (height <= 35) return [253, 219, 199, 210];
+            if (height <= 60) return [239, 138, 98, 210];
+            return [178, 24, 43, 210];
+        }
+
+        // Calculate statistics
+        function calcStats(features) {
+            const count = features.length;
+            const heights = features.map(f => f.properties.height || 0).filter(h => h > 0);
+            const avg = heights.length ? (heights.reduce((a, b) => a + b, 0) / heights.length) : 0;
+            const max = heights.length ? Math.max(...heights) : 0;
+            return { count, avg: avg.toFixed(1), max: max.toFixed(0) };
+        }
+
+        const tooltip = document.getElementById('tooltip');
+
+        // Deck instance storage for Shift key colour toggle
+        const deckViews = [];
+        let heightColoursOn = true;
+
+        // Create deck.gl instance with Right-click Orbit
+        function createDeckView(containerId, geojsonData, center, accentColor) {
+            const buildingLayer = new deck.GeoJsonLayer({
+                id: 'buildings-' + containerId,
+                data: geojsonData,
+                extruded: true,
+                wireframe: true,
+                opacity: 0.88,
+                getElevation: f => (f.properties.height || 3) * 1.5,
+                getFillColor: f => heightColoursOn ? getColorByHeight(f.properties.height) : [100, 100, 100, 180],
+                updateTriggers: { getFillColor: [heightColoursOn] },
+                getLineColor: [60, 60, 60, 80],
+                lineWidthMinPixels: 1,
+                pickable: true,
+                autoHighlight: true,
+                highlightColor: [255, 255, 100, 130],
+                material: {
+                    ambient: 0.35,
+                    diffuse: 0.6,
+                    shininess: 32,
+                    specularColor: [60, 64, 70]
+                },
+                onHover: info => {
+                    if (info.object) {
+                        const p = info.object.properties;
+                        tooltip.style.display = 'block';
+                        tooltip.style.left = (info.x + 14) + 'px';
+                        tooltip.style.top = (info.y + 14) + 'px';
+                        tooltip.innerHTML = `<strong>${p.name || 'Unnamed'}</strong><br>📏 Height: ${p.height || '?'} m | 🏢 Storeys: ${p.levels || '?'}`;
+                    } else {
+                        tooltip.style.display = 'none';
+                    }
+                }
+            });
+
+            const pinLayer = new deck.ScatterplotLayer({
+                id: 'pin-' + containerId,
+                data: [{ position: [center.lng, center.lat] }],
+                getPosition: d => d.position,
+                getRadius: 25,
+                getFillColor: accentColor,
+                getLineColor: [255, 255, 255, 255],
+                lineWidthMinPixels: 2,
+                stroked: true,
+                radiusMinPixels: 5,
+                radiusMaxPixels: 15
+            });
+
+            const deckInstance = new deck.DeckGL({
+                container: containerId,
+                mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+                initialViewState: {
+                    longitude: center.lng,
+                    latitude: center.lat,
+                    zoom: 15.3,
+                    pitch: 50,
+                    bearing: -25,
+                    maxPitch: 75
+                },
+                controller: {
+                    dragPan: true,       // Left button + drag = Pan
+                    dragRotate: true,    // Right button + drag = Orbit
+                    scrollZoom: true,    // Scroll wheel = Zoom
+                    touchRotate: true,   // Touch gesture = Orbit
+                    keyboard: true
+                },
+                layers: [buildingLayer, pinLayer],
+                effects: [
+                    new deck.LightingEffect({
+                        ambientLight: new deck.AmbientLight({ color: [255, 255, 255], intensity: 1.2 }),
+                        dirLight: new deck._SunLight({
+                            timestamp: Date.UTC(2024, 6, 15, 3, 0, 0),
+                            color: [255, 245, 230],
+                            intensity: 2.0
+                        })
+                    })
+                ]
+            });
+
+            // 우클릭 컨텍스트 메뉴 방지 (Orbit 시 방해 제거)
+            document.getElementById(containerId).addEventListener('contextmenu', e => e.preventDefault());
+
+            // 인스턴스 저장 (Shift 키 색상 토글에 사용)
+            deckViews.push({ deck: deckInstance, data: geojsonData, containerId, center, accentColor });
+
+            return deckInstance;
+        }
+
+        // Main initialization
+        async function init() {
+            // Load data in parallel
+            const [burwoodResp, ashfieldResp] = await Promise.all([
+                fetch('./burwood_buildings.geojson'),
+                fetch('./ashfield_buildings.geojson')
+            ]);
+            const burwoodData = await burwoodResp.json();
+            const ashfieldData = await ashfieldResp.json();
+
+            // Update statistics
+            const bStats = calcStats(burwoodData.features);
+            const aStats = calcStats(ashfieldData.features);
+
+            document.getElementById('badge-left').textContent = `🏢 ${bStats.count} Buildings`;
+            document.getElementById('badge-right').textContent = `🏢 ${aStats.count} Buildings`;
+            document.getElementById('stats-left').textContent = `${bStats.count} buildings | Avg ${bStats.avg} m | Max ${bStats.max} m`;
+            document.getElementById('stats-right').textContent = `${aStats.count} buildings | Avg ${aStats.avg} m | Max ${aStats.max} m`;
+
+            // Left: Burwood
+            createDeckView(
+                'deck-left',
+                burwoodData,
+                { lng: 151.1043, lat: -33.8773 },
+                [100, 180, 255, 255]
+            );
+
+            // Right: Ashfield
+            createDeckView(
+                'deck-right',
+                ashfieldData,
+                { lng: 151.1280, lat: -33.8871 },
+                [255, 100, 150, 255]
+            );
+        }
+
+        init();
+
+        // Shift 키 = 높이별 색상 토글 (Height Colours ON/OFF)
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Shift' && !e.repeat) {
+                heightColoursOn = !heightColoursOn;
+                deckViews.forEach(v => {
+                    v.deck.setProps({
+                        layers: [
+                            new deck.GeoJsonLayer({
+                                id: 'buildings-' + v.containerId,
+                                data: v.data,
+                                extruded: true,
+                                wireframe: true,
+                                opacity: 0.88,
+                                getElevation: f => (f.properties.height || 3) * 1.5,
+                                getFillColor: f => heightColoursOn ? getColorByHeight(f.properties.height) : [100, 100, 100, 180],
+                                getLineColor: [60, 60, 60, 80],
+                                lineWidthMinPixels: 1,
+                                pickable: true,
+                                autoHighlight: true,
+                                highlightColor: [255, 255, 100, 130],
+                                material: { ambient: 0.35, diffuse: 0.6, shininess: 32, specularColor: [60, 64, 70] },
+                                updateTriggers: { getFillColor: [heightColoursOn] },
+                                onHover: info => {
+                                    if (info.object) {
+                                        const p = info.object.properties;
+                                        tooltip.style.display = 'block';
+                                        tooltip.style.left = (info.x + 14) + 'px';
+                                        tooltip.style.top = (info.y + 14) + 'px';
+                                        tooltip.innerHTML = `<strong>${p.name || 'Unnamed'}</strong><br>📏 Height: ${p.height || '?'} m | 🏢 Storeys: ${p.levels || '?'}`;
+                                    } else {
+                                        tooltip.style.display = 'none';
+                                    }
+                                }
+                            }),
+                            new deck.ScatterplotLayer({
+                                id: 'pin-' + v.containerId,
+                                data: [{ position: [v.center.lng, v.center.lat] }],
+                                getPosition: d => d.position,
+                                getRadius: 25,
+                                getFillColor: v.accentColor,
+                                getLineColor: [255, 255, 255, 255],
+                                lineWidthMinPixels: 2,
+                                stroked: true,
+                                radiusMinPixels: 5,
+                                radiusMaxPixels: 15
+                            })
+                        ]
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

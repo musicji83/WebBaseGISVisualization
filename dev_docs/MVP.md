@@ -8,11 +8,11 @@
 
 ### 1.1 MVP 범위
 
-> **한 문장 요약**: Burwood Station 반경 500m 건물을 자동으로 수집 → QGIS 프로젝트 구성 → 브라우저에서 3D 인터랙티브 시각화
+> **한 문장 요약**: Burwood & Ashfield Station 건물을 자동으로 수집 → QGIS 프로젝트 구성 → 브라우저에서 듀얼 원형 프레임 3D 비교 시각화
 
 | 항목 | 내용 |
 |------|------|
-| **핵심 가치** | 비개발자도 터미널 한 줄로 3D 건물 시각화 완성 |
+| **핵심 가치** | 비개발자도 터미널 한 줄로 3D 건물 시각화 완성 + 두 지역 비교 |
 | **MVP 버전** | v1.0 |
 | **목표 완료** | 2026-03-02 |
 | **상태** | ✅ 완료 |
@@ -21,13 +21,16 @@
 
 | ✅ 포함 (MVP) | ❌ 제외 (향후) |
 |---------------|---------------|
-| Burwood Station 고정 좌표 | 사용자 좌표 입력 |
-| 500m 고정 반경 | 가변 반경 |
+| Burwood + Ashfield 듀얼 뷰 | 3개 이상 지역 비교 |
+| 500 m 고정 반경 | 가변 반경 |
 | 기존 GeoJSON 재사용 | 실시간 API 호출 |
 | 높이별 6단계 색상 | 사용자 커스텀 색상 |
-| 마우스 회전/확대/이동 | 키보드 단축키 |
-| 건물 hover 툴팁 | 건물 검색/필터링 |
+| Left-drag: Pan, Right-drag: Orbit | 키보드 단축키 |
+| SVG 마우스 조작 다이어그램 | 애니메이션 튜토리얼 |
+| 건물 hover 툴팁 (Info) | 건물 검색/필터링 |
 | 다크 테마 배경지도 | 테마 전환 |
+| 원형 프레임 비교 뷰 | 탭/슬라이더 뷰 |
+| Australian English UI | 다국어 지원 |
 | 로컬 HTTP 서버 | 클라우드 배포 |
 
 ---
@@ -44,20 +47,20 @@
                    │
     ┌──────────────┴──────────────┐
     ▼                             ▼
-┌─────────────┐          ┌──────────────────┐
-│  QGIS 경로  │          │  웹 3D 경로       │
-│  (자동화)   │          │  (시각화)         │
-├─────────────┤          ├──────────────────┤
-│             │          │                  │
-│ run_all_    │  같은    │ burwood_3d_      │
-│ steps.py    │ GeoJSON  │ viewer.html      │
-│    ↓        │ ◄──────► │    ↓             │
-│ QGIS MCP    │  공유    │ deck.gl          │
-│    ↓        │          │    ↓             │
-│ PyQGIS      │          │ WebGL 렌더링     │
-│    ↓        │          │    ↓             │
-│ PNG + QGZ   │          │ 인터랙티브 3D    │
-└─────────────┘          └──────────────────┘
+┌─────────────┐          ┌──────────────────────────┐
+│  QGIS 경로  │          │  웹 3D 경로 (듀얼 뷰)    │
+│  (자동화)   │          │  (시각화)                 │
+├─────────────┤          ├──────────────────────────┤
+│             │          │                          │
+│ run_all_    │  같은    │ dual_3d_viewer.html      │
+│ steps.py    │ GeoJSON  │    ↓                     │
+│    ↓        │ ◄──────► │ ┌──────────┬──────────┐  │
+│ QGIS MCP    │  공유    │ │ Burwood  │ Ashfield │  │
+│    ↓        │          │ │ (513)    │ (840)    │  │
+│ PyQGIS      │          │ │ deck.gl  │ deck.gl  │  │
+│    ↓        │          │ └──────────┴──────────┘  │
+│ PNG + QGZ   │          │ + SVG 마우스 가이드       │
+└─────────────┘          └──────────────────────────┘
 ```
 
 ### 2.2 파일 구조
@@ -85,9 +88,11 @@ QGIS_MCP/
 │
 ├── run_all_steps.py             # 원클릭 자동화 스크립트
 ├── auto_start_mcp.py            # QGIS --code MCP 자동 시작
-├── burwood_3d_viewer.html       # 웹 3D 뷰어 (deck.gl)
+├── burwood_3d_viewer.html       # 단일 웹 3D 뷰어 (deck.gl)
+├── dual_3d_viewer.html          # 듀얼 원형 프레임 3D 뷰어 (Burwood vs Ashfield)
 │
-├── burwood_buildings.geojson    # 건물 데이터 (513개)
+├── burwood_buildings.geojson    # Burwood 건물 데이터 (513개)
+├── ashfield_buildings.geojson   # Ashfield 건물 데이터 (840개)
 ├── burwood_2d_map.png           # 2D 렌더링 이미지
 ├── burwood_3d.qgz              # QGIS 프로젝트 파일
 └── CLAUDE.md                    # 프로젝트 가이드
@@ -115,24 +120,33 @@ QGIS_MCP/
 `setRenderer3D()`가 QGIS 내부 상태를 오염시켜 이후 `exec()` 명령이 segfault를 일으킴.
 렌더링/저장을 먼저 완료한 뒤, 3D 설정은 마지막에 실행하여 크래시 영향을 최소화.
 
-### 3.2 웹 3D 뷰어 (`burwood_3d_viewer.html`)
+### 3.2 듀얼 웹 3D 뷰어 (`dual_3d_viewer.html`)
 
 | 기능 | 구현 방법 |
 |------|----------|
-| 3D 건물 렌더링 | deck.gl `GeoJsonLayer` (extruded: true) |
+| 3D 건물 렌더링 | deck.gl `GeoJsonLayer` (extruded: true) × 2 인스턴스 |
+| 듀얼 원형 프레임 | CSS `border-radius: 50%` + `overflow: hidden` |
 | 높이별 돌출 | `getElevation: feature.properties.height * 1.5` |
 | 높이별 색상 | `getColorByHeight()` 함수 (6단계 RdBu 팔레트) |
-| 마우스 인터랙션 | deck.gl `controller: true` (회전/확대/이동/기울기) |
-| 건물 툴팁 | `onHover` 이벤트 → DOM tooltip 업데이트 |
+| 마우스 컨트롤 | `controller: { dragPan, dragRotate, scrollZoom, touchRotate }` |
+| 컨트롤 매핑 | Left-drag: Pan, Right-drag: Orbit, Scroll: Zoom |
+| 건물 툴팁 | `onHover` → `Height: X m \| Storeys: Y` (Australian English) |
+| SVG 마우스 가이드 | 고정 오버레이 (Pan/Orbit/Zoom/Info 다이어그램) |
 | 배경지도 | MapLibre GL + CARTO dark-matter 타일 |
 | 조명 | deck.gl `LightingEffect` (ambient + sun) |
-| Burwood 핀 | `ScatterplotLayer` (빨간 점) |
+| 중심점 핀 | `ScatterplotLayer` (빨간 점) × 2 |
+
+**데이터**:
+| 지역 | GeoJSON | 건물 수 | 좌표 |
+|------|---------|--------|------|
+| Burwood | `burwood_buildings.geojson` | 513 | -33.8773, 151.1043 |
+| Ashfield | `ashfield_buildings.geojson` | 840 | -33.8871, 151.1280 |
 
 **실행 방법**:
 ```bash
 cd /Users/link4eeg/Desktop/QGIS_MCP
 python3 -m http.server 8080 --bind 127.0.0.1 &
-open http://localhost:8080/burwood_3d_viewer.html
+open http://localhost:8080/dual_3d_viewer.html
 ```
 
 ### 3.3 QGIS MCP 통신
@@ -167,15 +181,19 @@ run_all_steps.py                    QGIS 플러그인
 | 건물 레이어 로드 | 513개 피처 | 513개 확인 | PASS |
 | PNG 렌더링 | 파일 생성 + 2,657KB | 정상 생성 | PASS |
 | QGZ 저장 | 프로젝트 파일 생성 | 정상 저장 | PASS |
-| 웹 3D 뷰어 | 건물 3D 표시 | 513개 모두 렌더링 | PASS |
-| 마우스 회전 | 오른쪽 드래그로 회전 | 정상 동작 | PASS |
-| 건물 hover 툴팁 | 이름 + 높이 표시 | 정상 표시 | PASS |
+| 듀얼 3D 뷰어 | Burwood + Ashfield 동시 표시 | 1,353개 렌더링 | PASS |
+| 원형 프레임 | CSS 원형 클리핑 | 좌/우 정상 표시 | PASS |
+| Left-drag Pan | 왼쪽 드래그로 이동 | 정상 동작 | PASS |
+| Right-drag Orbit | 오른쪽 드래그로 회전 | 정상 동작 | PASS |
+| Scroll Zoom | 마우스 휠 확대/축소 | 정상 동작 | PASS |
+| 건물 hover 툴팁 | 이름 + 높이 + 층수 표시 | 정상 표시 (en-AU) | PASS |
+| SVG 마우스 가이드 | 조작 다이어그램 표시 | 정상 렌더링 | PASS |
 
 ### 4.2 알려진 제한사항
 
 | 제한사항 | 영향 | 해결 방안 |
 |---------|------|----------|
-| Burwood 좌표 하드코딩 | 다른 지역 분석 불가 | v1.1에서 파라미터화 |
+| 2개 지역 고정 (Burwood, Ashfield) | 다른 지역 추가 불가 | v1.1에서 파라미터화 |
 | QGIS 3D Map View 불가 | macOS segfault | 웹 뷰어로 대체 (현재 동작) |
 | 로컬 HTTP 서버 필요 | 추가 실행 단계 | v2.0에서 정적 호스팅 |
 | CDN 의존 | 오프라인 불가 | 로컬 번들링 고려 |
@@ -186,8 +204,9 @@ run_all_steps.py                    QGIS 플러그인
 
 | 개선 항목 | 현재 (v1.0) | 목표 (v1.1) |
 |----------|------------|------------|
-| 좌표 입력 | Burwood 하드코딩 | CLI 파라미터 또는 입력 폼 |
-| 반경 설정 | 500m 고정 | 100m ~ 2km 선택 |
+| 좌표 입력 | Burwood + Ashfield 고정 | CLI 파라미터 또는 입력 폼 |
+| 반경 설정 | 500 m 고정 | 100 m ~ 2 km 선택 |
+| 비교 지역 수 | 2개 (듀얼 뷰) | 3개 이상 (트리플 뷰) |
 | 데이터 소스 | 기존 GeoJSON 파일 | Overpass API 실시간 호출 |
 | 배포 | 로컬 HTTP 서버 | GitHub Pages 또는 Vercel |
 | 테마 | 다크 테마 고정 | 다크/라이트 전환 |

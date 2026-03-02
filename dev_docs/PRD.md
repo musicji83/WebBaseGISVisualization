@@ -8,10 +8,10 @@
 
 | 항목 | 내용 |
 |------|------|
-| **제품명** | Burwood Station 3D Buildings Visualization |
+| **제품명** | Sydney Stations 3D Buildings Visualization |
 | **버전** | v1.0 (MVP) |
 | **작성일** | 2026-03-02 |
-| **목적** | Burwood Station 반경 500m 건물 데이터를 3D로 시각화 |
+| **목적** | Burwood & Ashfield Station 반경 500 m 건물 데이터를 듀얼 원형 프레임으로 3D 비교 시각화 |
 | **대상 사용자** | GIS 분석가, 도시 계획 담당자, 데이터 시각화 학습자 |
 
 ## 2. 문제 정의
@@ -38,6 +38,7 @@
 | FR-01-1 | Overpass API로 특정 좌표 반경 내 건물 데이터 자동 수집 | P0 |
 | FR-01-2 | GeoJSON 형식으로 저장 (좌표, 높이, 층수, 이름 포함) | P0 |
 | FR-01-3 | 기존 GeoJSON 파일 재사용 지원 (API 장애 대비) | P1 |
+| FR-01-4 | 복수 지역 데이터 수집 (Burwood 513개 + Ashfield 840개) | P0 |
 
 #### FR-02: QGIS 프로젝트 자동 구성
 | ID | 요구사항 | 우선순위 |
@@ -52,11 +53,12 @@
 | ID | 요구사항 | 우선순위 |
 |----|---------|---------|
 | FR-03-1 | 브라우저에서 건물을 3D로 돌출(extrude) 렌더링 | P0 |
-| FR-03-2 | 마우스로 회전, 확대/축소, 이동 가능 | P0 |
+| FR-03-2 | Left-drag: Pan, Right-drag: Orbit, Scroll: Zoom 마우스 조작 | P0 |
 | FR-03-3 | 높이별 색상 구분 (QGIS 스타일과 동일) | P0 |
-| FR-03-4 | 건물 hover 시 이름, 높이, 층수 툴팁 표시 | P1 |
+| FR-03-4 | 건물 hover 시 이름, 높이, 층수 툴팁 표시 (Info) | P0 |
 | FR-03-5 | 다크 테마 배경지도 | P2 |
-| FR-03-6 | 조작법 안내 UI | P2 |
+| FR-03-6 | SVG 마우스 조작 다이어그램 UI | P1 |
+| FR-03-7 | 두 지역 비교 듀얼 원형 프레임 뷰 (Burwood vs Ashfield) | P0 |
 
 ### 3.2 비기능 요구사항 (Non-Functional Requirements)
 
@@ -64,7 +66,7 @@
 |----|---------|------|
 | NFR-01 | 전체 파이프라인 실행 시간 | 2분 이내 (QGIS 시작 포함) |
 | NFR-02 | 웹 뷰어 초기 로딩 | 3초 이내 |
-| NFR-03 | 웹 뷰어 FPS | 30fps 이상 (513개 건물 기준) |
+| NFR-03 | 웹 뷰어 FPS | 30fps 이상 (1,353개 건물, 듀얼 뷰 기준) |
 | NFR-04 | 브라우저 호환성 | Chrome, Safari, Firefox (WebGL 지원) |
 | NFR-05 | 외부 서버 의존성 | CDN(deck.gl, MapLibre) + CARTO 타일만 |
 
@@ -95,9 +97,11 @@
 | 지표 | 목표 | 현재 |
 |------|------|------|
 | 전체 자동화 성공률 | 100% (5개 Step 모두 완료) | 100% ✅ |
-| 웹 3D 뷰어 렌더링 | 513개 건물 3D 표시 | 513개 ✅ |
-| 마우스 인터랙션 | 회전/확대/이동/툴팁 | 모두 동작 ✅ |
-| 생성 파일 | GeoJSON + PNG + QGZ + HTML | 4개 모두 생성 ✅ |
+| 웹 3D 뷰어 렌더링 | 1,353개 건물 3D 표시 (듀얼 뷰) | Burwood 513 + Ashfield 840 ✅ |
+| 마우스 인터랙션 | Left-drag: Pan, Right-drag: Orbit, Scroll: Zoom, Hover: Info | 모두 동작 ✅ |
+| SVG 마우스 가이드 | 마우스 조작 다이어그램 표시 | 구현 완료 ✅ |
+| 듀얼 원형 프레임 | 두 지역 동시 비교 | Burwood vs Ashfield ✅ |
+| 생성 파일 | GeoJSON×2 + PNG + QGZ + HTML×2 | 6개 모두 생성 ✅ |
 
 ## 7. 향후 로드맵
 
@@ -106,5 +110,6 @@
 | v1.1 | 좌표/반경 사용자 입력 지원 | P1 |
 | v1.2 | 건물 검색 및 필터링 | P1 |
 | v1.3 | 시간대별 그림자 시뮬레이션 | P2 |
+| v1.4 | 추가 지역 비교 (3개 이상 원형 프레임) | P2 |
 | v2.0 | 다른 도시 지원 (범용화) | P2 |
 | v2.1 | 실시간 Overpass API 연동 | P3 |
