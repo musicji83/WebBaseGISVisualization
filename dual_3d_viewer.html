@@ -674,6 +674,102 @@
         }
         .footer-meta { display: flex; align-items: center; gap: 16px; font-size: 24px; color: #888; }
         .footer-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(0,0,0,0.2); }
+
+        /* ============================================================
+           RESPONSIVE — Fluid typography + layout breakpoints
+           All font sizes scale smoothly between mobile min and
+           desktop max using clamp(min, fluid-vw, max).
+           ============================================================ */
+
+        /* --- Fluid typography (overrides all hardcoded px above) --- */
+        .section-label          { font-size: clamp(13px, 1.8vw, 26px); }
+        .section-title          { font-size: clamp(24px, 6vw,  96px); }
+        .section-desc           { font-size: clamp(16px, 2.4vw, 34px); }
+        .section-inner          { padding: clamp(16px, 2.2vw, 32px); }
+        .card                   { padding: clamp(16px, 2.2vw, 32px); }
+        .card-sm                { padding: clamp(10px, 1.4vw, 20px); }
+        .nav-btn                { font-size: clamp(12px, 1.4vw, 24px); }
+        .hero-badge             { font-size: clamp(13px, 1.8vw, 26px); }
+        .hero-h1                { font-size: clamp(32px, 8vw,  144px); }
+        .hero-sub               { font-size: clamp(16px, 2.8vw, 40px); }
+        .hero-legend            { font-size: clamp(13px, 1.6vw, 26px); }
+        #bld-header h2          { font-size: clamp(22px, 3.9vw, 56px); }
+        #bld-header p           { font-size: clamp(13px, 1.8vw, 26px); }
+        .area-label h2          { font-size: clamp(15px, 2.5vw, 36px); }
+        .area-label .stats      { font-size: clamp(11px, 1.7vw, 24px); }
+        .badge                  { font-size: clamp(11px, 1.5vw, 22px); }
+        #bld-footer             { font-size: clamp(11px, 1.6vw, 24px); }
+        #vs-marker              { font-size: clamp(20px, 2.8vw, 40px); }
+        .mg-label               { font-size: clamp(11px, 1.5vw, 22px); }
+        .mg-label strong        { font-size: clamp(12px, 1.6vw, 24px); }
+        .mg-chev                { font-size: clamp(12px, 1.6vw, 24px); }
+        #tooltip                { font-size: clamp(12px, 1.6vw, 24px); }
+        .matrix-header          { font-size: clamp(14px, 1.9vw, 28px); }
+        .matrix-cell .pid       { font-size: clamp(24px, 3.3vw, 48px); }
+        .matrix-cell .equip     { font-size: clamp(11px, 1.5vw, 22px); }
+        .matrix-cell .tag       { font-size: clamp(11px, 1.5vw, 22px); }
+        .excluded-card .eid     { font-size: clamp(13px, 1.8vw, 26px); }
+        .excluded-card .ereason { font-size: clamp(13px, 1.8vw, 26px); }
+        .toggle-btn             { font-size: clamp(13px, 1.8vw, 26px); }
+        .filter-btn             { font-size: clamp(12px, 1.6vw, 24px); }
+        .metric-card-title      { font-size: clamp(12px, 1.6vw, 24px); }
+        .metric-val .num        { font-size: clamp(18px, 2.5vw, 36px); }
+        .metric-val .pid-label  { font-size: clamp(11px, 1.4vw, 20px); }
+        .metric-desc            { font-size: clamp(11px, 1.4vw, 20px); }
+        .scatter-tag            { font-size: clamp(12px, 1.6vw, 24px); }
+        .effect-change          { font-size: clamp(14px, 1.9vw, 28px); }
+        .effect-val-big         { font-size: clamp(24px, 3.9vw, 56px); }
+        .subjective-note        { font-size: clamp(14px, 1.9vw, 28px); }
+        .insight-num            { font-size: clamp(12px, 1.6vw, 24px); }
+        .insight-metric         { font-size: clamp(24px, 3.9vw, 56px); }
+        .insight-metric-label   { font-size: clamp(11px, 1.5vw, 22px); }
+        .footer-meta            { font-size: clamp(12px, 1.6vw, 24px); }
+
+        /* --- Tablet (≤ 1100px): shrink mouse guide --- */
+        @media (max-width: 1100px) {
+            #center-col  { min-width: 200px; }
+            #mouse-guide { width: 200px; }
+            .circle-frame {
+                width: min(36vw, 38vh);
+                height: min(36vw, 38vh);
+            }
+        }
+
+        /* --- Mobile (≤ 640px): stack layouts, hide mouse guide --- */
+        @media (max-width: 640px) {
+            /* Buildings: hide mouse guide, circles go side-by-side */
+            #buildings      { padding-top: 40px; padding-bottom: 12px; }
+            #center-col     { display: none; }
+            #dual-container { gap: 4px; padding: 0 8px; }
+            .circle-frame   {
+                width: min(44vw, 36vh);
+                height: min(44vw, 36vh);
+            }
+            .area-label h2    { font-size: clamp(13px, 4vw, 18px); }
+            .area-label .stats{ font-size: clamp(10px, 2.5vw, 12px); }
+            #bld-footer       { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+            /* hide the long keyboard instruction text on mobile */
+            #bld-footer > span:last-child { display: none; }
+
+            /* Hero */
+            .hero-badge  { margin-bottom: 16px; }
+            .hero-sub    { margin-bottom: 20px; }
+            .hero-legend { gap: 14px; flex-wrap: wrap; justify-content: center; }
+
+            /* Section spacing */
+            .section-inner      { padding: 20px 16px; }
+            .card               { padding: 18px; }
+            .matrix-cell        { padding: 12px 14px; }
+
+            /* Single-column layouts */
+            .excluded-grid  { grid-template-columns: 1fr; }
+            .metrics-grid   { grid-template-columns: 1fr; }
+            .effect-cards   { grid-template-columns: 1fr; }
+            .two-col        { grid-template-columns: 1fr; }
+            .insight-cards  { grid-template-columns: 1fr; }
+            .future-cards   { grid-template-columns: 1fr; }
+            .band-cards     { grid-template-columns: repeat(2, 1fr); }
+        }
     </style>
 </head>
 <body>
@@ -854,11 +950,11 @@
                     <div class="matrix-cell matrix-header"></div>
                     <div class="matrix-cell matrix-header" style="color:#f59e0b;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M12 2a8 8 0 0 0-8 8c0 6 8 12 8 12s8-6 8-12a8 8 0 0 0-8-8z"/></svg>
-                        🏙️ Burwood<br><span style="font-size:22px;color:rgba(0,0,0,0.4);font-weight:400;">Dynamic Urban</span>
+                        🏙️ Burwood<br><span style="font-size:clamp(11px,1.5vw,22px);color:rgba(0,0,0,0.4);font-weight:400;">Dynamic Urban</span>
                     </div>
                     <div class="matrix-cell matrix-header" style="color:#10b981;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><path d="M12 2a8 8 0 0 0-8 8c0 6 8 12 8 12s8-6 8-12a8 8 0 0 0-8-8z"/></svg>
-                        🌿 Ashfield<br><span style="font-size:22px;color:rgba(0,0,0,0.4);font-weight:400;">Quiet Residential</span>
+                        🌿 Ashfield<br><span style="font-size:clamp(11px,1.5vw,22px);color:rgba(0,0,0,0.4);font-weight:400;">Quiet Residential</span>
                     </div>
                     <!-- VR row -->
                     <div class="matrix-cell matrix-header" style="display:flex;align-items:center;gap:8px;color:#3b82f6;">
@@ -897,7 +993,7 @@
             <div class="fade-up" style="transition-delay:0.2s;margin-top:48px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                    <span style="font-size:26px;font-weight:600;color:#f59e0b;text-transform:uppercase;letter-spacing:0.1em;">⚠️ Excluded Participants</span>
+                    <span style="font-size:clamp(13px,1.8vw,26px);font-weight:600;color:#f59e0b;text-transform:uppercase;letter-spacing:0.1em;">⚠️ Excluded Participants</span>
                 </div>
                 <div class="excluded-grid">
                     <div class="excluded-card">
@@ -959,7 +1055,7 @@
                 <div class="fade-up" style="transition-delay:0.1s;">
                     <div class="metrics-grid" id="metric-cards" style="margin-bottom:24px;"></div>
                     <div class="chart-container">
-                        <p style="font-size:28px;color:#555;margin-bottom:16px;">📈 Cognitive Metrics Comparison</p>
+                        <p style="font-size:clamp(14px,1.9vw,28px);color:#555;margin-bottom:16px;">📈 Cognitive Metrics Comparison</p>
                         <div class="chart-wrap" style="height:260px;">
                             <canvas id="cog-bar-chart"></canvas>
                         </div>
@@ -967,8 +1063,8 @@
                 </div>
                 <div class="fade-up" style="transition-delay:0.2s;">
                     <div class="chart-container" style="height:100%;">
-                        <p style="font-size:28px;color:#555;margin-bottom:4px;">🗺️ Cognitive Load vs. Engagement Map</p>
-                        <p style="font-size:24px;color:#888;margin-bottom:24px;">Participants positioned in the upper-left quadrant represent the optimal &ldquo;Flow Zone&rdquo; &mdash; characterised by high engagement and manageable cognitive demand.</p>
+                        <p style="font-size:clamp(14px,1.9vw,28px);color:#555;margin-bottom:4px;">🗺️ Cognitive Load vs. Engagement Map</p>
+                        <p style="font-size:clamp(12px,1.6vw,24px);color:#888;margin-bottom:24px;">Participants positioned in the upper-left quadrant represent the optimal &ldquo;Flow Zone&rdquo; &mdash; characterised by high engagement and manageable cognitive demand.</p>
                         <div class="chart-wrap" style="height:360px;">
                             <canvas id="cog-scatter-chart"></canvas>
                         </div>
@@ -998,7 +1094,7 @@
 
             <div class="fade-up" style="transition-delay:0.3s;">
                 <div class="chart-container">
-                    <p style="font-size:28px;color:#555;margin-bottom:24px;">📊 VR vs. Monitor &mdash; Full Metric Comparison (Unicorn EEG Equipment)</p>
+                    <p style="font-size:clamp(14px,1.9vw,28px);color:#555;margin-bottom:24px;">📊 VR vs. Monitor &mdash; Full Metric Comparison (Unicorn EEG Equipment)</p>
                     <div class="chart-wrap" style="height:320px;">
                         <canvas id="vr-compare-chart"></canvas>
                     </div>
@@ -1047,7 +1143,7 @@
             <div class="fade-up" style="transition-delay:0.3s;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:32px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                    <h3 style="font-size:48px;font-weight:700;">🚀 Future Research Directions</h3>
+                    <h3 style="font-size:clamp(24px,3.3vw,48px);font-weight:700;">🚀 Future Research Directions</h3>
                 </div>
                 <div class="future-cards" id="future-cards"></div>
             </div>
@@ -1056,8 +1152,8 @@
             <div class="fade-up" style="transition-delay:0.4s;">
                 <div class="page-footer">
                     <div>
-                        <p style="font-size:28px;color:#444;">🧠 VR–EEG Neural Experience Dashboard</p>
-                        <p style="font-size:24px;color:#888;">Based on research data &middot; March 2026</p>
+                        <p style="font-size:clamp(14px,1.9vw,28px);color:#444;">🧠 VR–EEG Neural Experience Dashboard</p>
+                        <p style="font-size:clamp(12px,1.6vw,24px);color:#888;">Based on research data &middot; March 2026</p>
                     </div>
                     <div class="footer-meta">
                         <span>4 Participants</span>
@@ -1205,9 +1301,9 @@
             div.className = 'card-sm';
             div.innerHTML = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                 <span class="band-dot" style="background:${BAND_COLORS[band]};"></span>
-                <span style="font-size:28px;font-weight:600;color:${BAND_COLORS[band]};">${band}</span>
+                <span style="font-size:clamp(14px,1.9vw,28px);font-weight:600;color:${BAND_COLORS[band]};">${band}</span>
             </div>
-            <p style="font-size:24px;color:rgba(0,0,0,0.5);">${BAND_DESC[band]}</p>`;
+            <p style="font-size:clamp(12px,1.6vw,24px);color:rgba(0,0,0,0.5);">${BAND_DESC[band]}</p>`;
             container.appendChild(div);
         });
     }
@@ -1260,15 +1356,15 @@
                 : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>';
             div.innerHTML = `
                 <div class="effect-header">
-                    <span style="font-size:28px;font-weight:600;color:#1a1a1a;">${c.title}</span>
+                    <span style="font-size:clamp(14px,1.9vw,28px);font-weight:600;color:#1a1a1a;">${c.title}</span>
                     <div class="effect-change" style="color:${c.color};">${arrow}<span>${c.change}</span></div>
                 </div>
                 <div class="effect-values">
-                    <div><p style="font-size:24px;color:#60a5fa;margin-bottom:4px;">🥽 VR</p><span class="effect-val-big" style="color:#60a5fa;">${c.vr}${c.unit}</span></div>
-                    <div style="color:rgba(0,0,0,0.2);font-size:32px;margin-bottom:4px;align-self:center;">vs</div>
-                    <div><p style="font-size:24px;color:#f43f5e;margin-bottom:4px;">🖥️ Monitor</p><span class="effect-val-big" style="color:#f43f5e;">${c.mon}${c.unit}</span></div>
+                    <div><p style="font-size:clamp(12px,1.6vw,24px);color:#60a5fa;margin-bottom:4px;">🥽 VR</p><span class="effect-val-big" style="color:#60a5fa;">${c.vr}${c.unit}</span></div>
+                    <div style="color:rgba(0,0,0,0.2);font-size:clamp(16px,2.2vw,32px);margin-bottom:4px;align-self:center;">vs</div>
+                    <div><p style="font-size:clamp(12px,1.6vw,24px);color:#f43f5e;margin-bottom:4px;">🖥️ Monitor</p><span class="effect-val-big" style="color:#f43f5e;">${c.mon}${c.unit}</span></div>
                 </div>
-                <p style="font-size:24px;color:rgba(0,0,0,0.5);line-height:1.5;">${c.desc}</p>`;
+                <p style="font-size:clamp(12px,1.6vw,24px);color:rgba(0,0,0,0.5);line-height:1.5;">${c.desc}</p>`;
             container.appendChild(div);
         });
     }
@@ -1291,8 +1387,8 @@
                         <div class="insight-icon">${iconSvgs[ins.icon]}</div>
                         <span class="insight-num">0${i + 1}</span>
                     </div>
-                    <h3 style="font-size:40px;font-weight:700;margin-bottom:12px;">${ins.title}</h3>
-                    <p style="font-size:26px;color:rgba(0,0,0,0.55);line-height:1.55;margin-bottom:24px;">${ins.description}</p>
+                    <h3 style="font-size:clamp(20px,2.8vw,40px);font-weight:700;margin-bottom:12px;">${ins.title}</h3>
+                    <p style="font-size:clamp(13px,1.8vw,26px);color:rgba(0,0,0,0.55);line-height:1.55;margin-bottom:24px;">${ins.description}</p>
                     <div>
                         <p class="insight-metric">${ins.metric}</p>
                         <p class="insight-metric-label">${ins.metricLabel}</p>
@@ -1316,8 +1412,8 @@
             div.style.padding = '20px';
             div.innerHTML = `
                 <div class="future-icon">${iconSvgs[item.icon]}</div>
-                <h4 style="font-size:28px;font-weight:600;margin-bottom:8px;">${item.title}</h4>
-                <p style="font-size:24px;color:rgba(0,0,0,0.5);line-height:1.5;">${item.desc}</p>`;
+                <h4 style="font-size:clamp(14px,1.9vw,28px);font-weight:600;margin-bottom:8px;">${item.title}</h4>
+                <p style="font-size:clamp(12px,1.6vw,24px);color:rgba(0,0,0,0.5);line-height:1.5;">${item.desc}</p>`;
             container.appendChild(div);
         });
     }
